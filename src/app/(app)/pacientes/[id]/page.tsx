@@ -205,27 +205,31 @@ export default async function PatientPage({
                     </div>
                     <ul className="divide-y divide-gray-50">
                       {s.session_exercises.map((e) => (
-                        <li
-                          key={e.id}
-                          className="flex items-center gap-3 py-2 text-sm"
-                        >
-                          <span
-                            className="w-2 h-2 rounded-full shrink-0"
-                            style={{ backgroundColor: evaColor(e.pain_eva) }}
-                          />
-                          <span className="flex-1">
-                            {e.exercises?.name ?? "Exercício"}
-                          </span>
-                          <span className="text-gray-500 tabular-nums">
-                            {formatDose(e)}
-                          </span>
-                          <span
-                            className="text-[11px] font-semibold rounded-md px-2 py-0.5 text-white tabular-nums"
-                            style={{ backgroundColor: evaColor(e.pain_eva) }}
-                            title={evaLabel(e.pain_eva)}
-                          >
-                            EVA {e.pain_eva}
-                          </span>
+                        <li key={e.id} className="py-2 text-sm">
+                          <div className="flex items-center gap-3">
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: evaColor(e.pain_eva) }}
+                            />
+                            <span className="flex-1">
+                              {e.exercises?.name ?? "Exercício"}
+                            </span>
+                            <span className="text-gray-500 tabular-nums">
+                              {formatDose(e)}
+                            </span>
+                            <span
+                              className="text-[11px] font-semibold rounded-md px-2 py-0.5 text-white tabular-nums"
+                              style={{ backgroundColor: evaColor(e.pain_eva) }}
+                              title={evaLabel(e.pain_eva)}
+                            >
+                              EVA {e.pain_eva}
+                            </span>
+                          </div>
+                          {e.notes && (
+                            <p className="ml-5 mt-1 text-xs text-gray-500 italic">
+                              Obs.: {e.notes}
+                            </p>
+                          )}
                         </li>
                       ))}
                     </ul>

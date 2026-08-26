@@ -267,14 +267,28 @@ export default function ReportDocument({
               <Text style={[s.th, s.colEva]}>Dor (EVA 0–10)</Text>
             </View>
             {sess.session_exercises.map((e) => (
-              <View key={e.id} style={s.row}>
-                <Text style={s.colExercise}>
-                  {e.exercises?.name ?? "Exercício"}
-                </Text>
-                <Text style={s.colDose}>{formatDose(e)}</Text>
-                <Text style={s.colEva}>
-                  {e.pain_eva} — {evaLabel(e.pain_eva)}
-                </Text>
+              <View key={e.id}>
+                <View style={s.row}>
+                  <Text style={s.colExercise}>
+                    {e.exercises?.name ?? "Exercício"}
+                  </Text>
+                  <Text style={s.colDose}>{formatDose(e)}</Text>
+                  <Text style={s.colEva}>
+                    {e.pain_eva} — {evaLabel(e.pain_eva)}
+                  </Text>
+                </View>
+                {e.notes && (
+                  <Text
+                    style={{
+                      fontSize: 7.5,
+                      color: "#6b7280",
+                      marginLeft: 8,
+                      marginBottom: 2,
+                    }}
+                  >
+                    Obs.: {e.notes}
+                  </Text>
+                )}
               </View>
             ))}
             {sess.general_notes && (

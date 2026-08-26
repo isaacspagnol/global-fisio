@@ -156,6 +156,12 @@ describe("Tela de atendimento", () => {
     await user.click(within(card as HTMLElement).getByRole("button", { name: "6" }));
     expect(screen.getByText(/6 — Dor moderada/)).toBeInTheDocument();
 
+    // observação por exercício
+    await user.type(
+      within(card as HTMLElement).getByPlaceholderText(/dor no final da amplitude/),
+      "Compensou com o tronco"
+    );
+
     await user.click(screen.getByRole("button", { name: /Salvar sessão/ }));
 
     expect(insertedRows["sessions"]).toHaveLength(1);
@@ -165,6 +171,7 @@ describe("Tela de atendimento", () => {
     expect(row.sets).toBe(3);
     expect(row.reps).toBe(15);
     expect(row.pain_eva).toBe(6);
+    expect(row.notes).toBe("Compensou com o tronco");
     expect(pushMock).toHaveBeenCalledWith("/pacientes/p1");
   });
 

@@ -484,6 +484,20 @@ export default function AtendimentoClient({
                   )}
                 </div>
 
+                <div className="mb-3">
+                  <p className="text-[11px] text-gray-500 mb-1">
+                    Observação do exercício (opcional)
+                  </p>
+                  <input
+                    value={entry.notes}
+                    onChange={(e) =>
+                      updateEntry(entry.uid, { notes: e.target.value })
+                    }
+                    placeholder="Ex.: dor no final da amplitude, compensou com o tronco..."
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                  />
+                </div>
+
                 <div>
                   <p className="text-[11px] text-gray-500 mb-1.5">
                     Escala EVA de dor{" "}
