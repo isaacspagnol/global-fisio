@@ -75,7 +75,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-cyan-950 text-cyan-200 flex justify-around py-2 border-t border-cyan-900">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-cyan-950 text-cyan-200 flex justify-around h-[calc(4rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] border-t border-cyan-900">
         {links.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -83,11 +83,13 @@ export default function Sidebar() {
             <Link
               key={href}
               href={href}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg text-[11px] ${
+              className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium ${
                 active ? "text-white" : ""
               }`}
             >
-              <Icon size={20} />
+              <span className={`flex items-center justify-center w-12 h-7 rounded-full transition ${active ? "bg-brand" : ""}`}>
+                <Icon size={20} />
+              </span>
               {label}
             </Link>
           );

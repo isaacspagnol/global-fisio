@@ -24,3 +24,18 @@ input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
+
+/* Mobile: 16px em campos evita o zoom automático do iOS ao focar */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Feedback de toque sem o highlight azul padrão */
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
