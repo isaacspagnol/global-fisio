@@ -22,6 +22,7 @@ import {
   type Session,
   type SessionExercise,
 } from "@/lib/types";
+import { signPhotoUrls } from "@/lib/photos";
 import {
   Avatar,
   Badge,
@@ -64,6 +65,8 @@ export default async function PatientPage({
   if (!patientData) notFound();
   const patient = patientData as Patient;
   const sessions = (sessionsData ?? []) as SessionWithExercises[];
+  const photos = await signPhotoUrls(supabase, [patient.photo_path]);
+  const photoUrl = patient.photo_path ? photos.get(patient.photo_path) ?? null : null;
 
   const avgOf = (s: SessionWithExercises) =>
     s.session_exercises.length > 0
@@ -109,7 +112,7 @@ export default async function PatientPage({
         >
           <ArrowLeft size={22} />
         </Link>
-        <Avatar name={patient.full_name} size="lg" />
+        <Avatar name={patient.full_name} src={photoUrl} size="lg" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl md:text-2xl font-bold leading-tight tracking-tight">

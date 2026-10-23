@@ -11,6 +11,8 @@ export type Patient = {
   referring_doctor: string | null;
   notes: string | null;
   status: "ativo" | "alta" | "inativo";
+  /** caminho da foto no bucket privado "documentos" (ou null) */
+  photo_path?: string | null;
   created_at: string;
 };
 
@@ -60,7 +62,7 @@ export type Appointment = {
   status: "agendado" | "concluido" | "cancelado" | "faltou";
   notes: string | null;
   created_at: string;
-  patients?: Pick<Patient, "id" | "full_name">;
+  patients?: Pick<Patient, "id" | "full_name" | "photo_path">;
 };
 
 export type Session = {

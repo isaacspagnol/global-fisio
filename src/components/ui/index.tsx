@@ -137,21 +137,39 @@ export function initials(name: string) {
 
 export function Avatar({
   name,
+  src,
   size = "md",
+  className = "",
 }: {
   name: string;
-  size?: "sm" | "md" | "lg";
+  /** URL (assinada) da foto; sem foto mostra as iniciais */
+  src?: string | null;
+  size?: "sm" | "md" | "lg" | "xl";
+  className?: string;
 }) {
   const s =
     size === "sm"
       ? "w-9 h-9 text-xs"
       : size === "lg"
         ? "w-14 h-14 text-lg"
-        : "w-11 h-11 text-sm";
+        : size === "xl"
+          ? "w-24 h-24 text-2xl"
+          : "w-11 h-11 text-sm";
+  if (src) {
+    return (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img
+        src={src}
+        alt={`Foto de ${name}`}
+        className={`${s} shrink-0 rounded-full object-cover bg-surface-2 ${className}`}
+        draggable={false}
+      />
+    );
+  }
   return (
     <span
       aria-hidden
-      className={`${s} shrink-0 rounded-full bg-accent-soft text-accent-soft-fg flex items-center justify-center font-bold`}
+      className={`${s} shrink-0 rounded-full bg-accent-soft text-accent-soft-fg flex items-center justify-center font-bold ${className}`}
     >
       {initials(name)}
     </span>

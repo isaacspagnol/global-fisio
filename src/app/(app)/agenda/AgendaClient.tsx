@@ -38,6 +38,7 @@ import {
 } from "@/components/ui";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useMounted } from "@/lib/hooks";
+import { signPhotoUrls } from "@/lib/photos";
 
 const STATUS_BORDER: Record<string, string> = {
   agendado: "border-l-accent",
@@ -47,13 +48,15 @@ const STATUS_BORDER: Record<string, string> = {
 };
 
 function ApptRow({
-a,
-compact = false,
-onSelect,
+  a,
+  compact = false,
+  onSelect,
+  photoUrl = null,
 }: {
-a: Appointment;
-compact?: boolean;
-onSelect: (a: Appointment) => void;
+  a: Appointment;
+  compact?: boolean;
+  onSelect: (a: Appointment) => void;
+  photoUrl?: string | null;
 }) {
   const st = APPT_STATUS[a.status] ?? APPT_STATUS.agendado;
   return (
@@ -66,6 +69,9 @@ onSelect: (a: Appointment) => void;
         <span className={`font-bold tnum ${compact ? "text-sm" : "text-base w-12"}`}>
           {format(new Date(a.starts_at), "HH:mm")}
         </span>
+        {!compact && (
+          <Avatar name={a.patients?.full_name ?? "P"} src={photoUrl} size="sm" />
+        )}
         <span className="flex-1 min-w-0">
           <span className={`block font-medium truncate ${compact ? "text-xs" : "text-[15px]"}`}>
             {a.patients?.full_name}
@@ -110,6 +116,9 @@ function AgendaInner({ patients }: { patients: Patient[] }) {
   );
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [photos, setPhotos] = useState<Map<string, string>>(new Map());
+  const photoOf = (a: Appointment) =>
+    a.patients?.photo_path ? photos.get(a.patients.photo_path) ?? null : null;
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formDate, setFormDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
@@ -132,13 +141,16 @@ function AgendaInner({ patients }: { patients: Patient[] }) {
     const to = addDays(weekStart, 7).toISOString();
     const { data } = await supabase
       .from("appointments")
-      .select("*, patients(id, full_name)")
+      .select("*, patients(id, full_name, photo_path)")
       .gte("starts_at", from)
       .lt("starts_at", to)
       .order("starts_at");
     if (ticket !== loadTicket.current) return;
-    setAppointments((data ?? []) as Appointment[]);
+    const list = (data ?? []) as Appointment[];
+    setAppointments(list);
     setLoading(false);
+    const map = await signPhotoUrls(supabase, list.map((a) => a.patients?.photo_path));
+    if (ticket === loadTicket.current) setPhotos(map);
   }, [weekStart]);
 
   useEffect(() => {
@@ -334,7 +346,7 @@ function AgendaInner({ patients }: { patients: Patient[] }) {
         ) : (
           <div className="space-y-2">
             {selectedAppts.map((a) => (
-              <ApptRow key={a.id} a={a} onSelect={setSelected} />
+              <ApptRow key={a.id} a={a} onSelect={setSelected} photoUrl={photoOf(a)} />
             ))}
           </div>
         )}
@@ -432,7 +444,7 @@ function AgendaInner({ patients }: { patients: Patient[] }) {
         {selected && (
           <div className="space-y-4 pb-2">
             <div className="flex items-center gap-3">
-              <Avatar name={selected.patients?.full_name ?? "P"} />
+              <Avatar name={selected.patients?.full_name ?? "P"} src={photoOf(selected)} />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate">{selected.patients?.full_name}</p>
                 <p className="text-sm text-fg-muted tnum">

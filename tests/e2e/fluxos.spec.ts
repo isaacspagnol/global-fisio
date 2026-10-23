@@ -50,6 +50,35 @@ test.describe("Pacientes", () => {
   });
 });
 
+test.describe("Foto do paciente", () => {
+  test("adiciona foto ao cadastrar e ela aparece na ficha e na lista", async ({
+    page,
+  }) => {
+    await login(page);
+    const nome = `Paciente Com Foto ${Date.now()}`;
+    await page.goto("/pacientes/novo");
+    await page.locator('input[name="full_name"]').fill(nome);
+    // PNG 2x2 válido (não precisa de arquivo em disco)
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DwHwyBFIjFwAAhAADeaAUe6yR3rwAAAABJRU5ErkJggg==",
+      "base64"
+    );
+    await page
+      .locator('input[type="file"][accept="image/*"]')
+      .setInputFiles({ name: "foto.png", mimeType: "image/png", buffer: png });
+    await expect(page.getByAltText(`Foto de ${nome}`)).toBeVisible();
+    await page.getByRole("button", { name: "Cadastrar paciente" }).click();
+    await expect(page.getByRole("heading", { name: nome })).toBeVisible({
+      timeout: 20_000,
+    });
+    // ficha mostra a foto (img) em vez das iniciais
+    await expect(page.getByAltText(`Foto de ${nome}`)).toBeVisible();
+    // lista também
+    await page.goto("/pacientes");
+    await expect(page.getByAltText(`Foto de ${nome}`)).toBeVisible();
+  });
+});
+
 test.describe("Atendimento com EVA", () => {
   test("registra sessão com exercício pré-cadastrado e escala EVA", async ({
     page,

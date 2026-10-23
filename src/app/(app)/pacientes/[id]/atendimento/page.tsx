@@ -5,6 +5,7 @@ import AtendimentoClient, {
   type LastSession,
 } from "./AtendimentoClient";
 import type { Exercise, Patient } from "@/lib/types";
+import { signPhotoUrls } from "@/lib/photos";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,9 @@ export default async function AtendimentoPage({
     ]);
 
   if (!patient) notFound();
+  const photoPath = (patient as Patient).photo_path ?? null;
+  const photos = await signPhotoUrls(supabase, [photoPath]);
+  const photoUrl = photoPath ? photos.get(photoPath) ?? null : null;
 
   const recentSessions = (recent ?? []) as SessionRow[];
   const editing = (editRes?.data ?? null) as SessionRow | null;
@@ -144,6 +148,7 @@ export default async function AtendimentoPage({
       lastSession={lastSession}
       recentExerciseIds={recentIds}
       editingSession={editingSession}
+      photoUrl={photoUrl}
     />
   );
 }

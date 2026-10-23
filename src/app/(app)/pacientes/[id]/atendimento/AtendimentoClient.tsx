@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import DocumentsPanel from "@/components/DocumentsPanel";
 import {
+  Avatar,
   BottomSheet,
   Button,
   Chip,
@@ -506,12 +507,14 @@ export default function AtendimentoClient({
   lastSession = null,
   recentExerciseIds = [],
   editingSession = null,
+  photoUrl = null,
 }: {
   patient: Patient;
   exercises: Exercise[];
   lastSession?: LastSession | null;
   recentExerciseIds?: string[];
   editingSession?: EditingSession | null;
+  photoUrl?: string | null;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -1072,6 +1075,7 @@ export default function AtendimentoClient({
           >
             <ArrowLeft size={22} />
           </Link>
+          <Avatar name={patient.full_name} src={photoUrl} size="sm" />
           <div className="min-w-0 flex-1">
             <h1 className="text-[15px] md:text-lg font-bold leading-tight truncate">
               {patient.full_name}

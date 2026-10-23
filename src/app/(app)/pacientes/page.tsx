@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ChevronRight, Plus, Search, Users } from "lucide-react";
 import type { Patient } from "@/lib/types";
+import { signPhotoUrls } from "@/lib/photos";
 import {
   Avatar,
   Badge,
@@ -38,6 +39,7 @@ export default async function PatientsPage({
 
   const { data } = await query;
   const patients = (data ?? []) as Patient[];
+  const photos = await signPhotoUrls(supabase, patients.map((p) => p.photo_path));
 
   const hrefFor = (s: string) => {
     const p = new URLSearchParams();
@@ -120,7 +122,10 @@ export default async function PatientsPage({
                   href={`/pacientes/${p.id}`}
                   className="flex items-center gap-3 px-4 py-3 min-h-[68px] hover:bg-surface-2 active:bg-surface-3 transition-colors"
                 >
-                  <Avatar name={p.full_name} />
+                  <Avatar
+                    name={p.full_name}
+                    src={p.photo_path ? photos.get(p.photo_path) : null}
+                  />
                   <span className="flex-1 min-w-0">
                     <span className="block text-[15px] font-medium truncate">
                       {p.full_name}

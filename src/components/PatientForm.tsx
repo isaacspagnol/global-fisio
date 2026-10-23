@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Patient } from "@/lib/types";
+import { PHOTO_BUCKET, photoPathFor, resizeImage } from "@/lib/photos";
+import PhotoPicker, { type PhotoChange } from "@/components/PhotoPicker";
 import {
   Button,
   Card,
@@ -13,11 +15,48 @@ import {
   useToast,
 } from "@/components/ui";
 
-export default function PatientForm({ patient }: { patient?: Patient }) {
+export default function PatientForm({
+  patient,
+  photoUrl = null,
+}: {
+  patient?: Patient;
+  /** URL assinada da foto atual (modo edição) */
+  photoUrl?: string | null;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<PhotoChange>({ kind: "keep" });
+  const [nameForAvatar, setNameForAvatar] = useState(patient?.full_name ?? "");
+
+  /**
+   * Aplica a escolha de foto depois que o paciente já existe no banco:
+   * envia a nova (reduzida) e grava o caminho; remove a antiga do bucket.
+   * Falha aqui não desfaz o cadastro — só avisa.
+   */
+  async function applyPhoto(patientId: string, previousPath: string | null | undefined) {
+    if (photo.kind === "keep") return true;
+    const supabase = createClient();
+    let newPath: string | null = null;
+    if (photo.kind === "replace") {
+      const blob = await resizeImage(photo.file);
+      newPath = photoPathFor(patientId);
+      const { error: upErr } = await supabase.storage
+        .from(PHOTO_BUCKET)
+        .upload(newPath, blob, { contentType: blob.type || "image/jpeg", upsert: true });
+      if (upErr) return false;
+    }
+    const { error: dbErr } = await supabase
+      .from("patients")
+      .update({ photo_path: newPath })
+      .eq("id", patientId);
+    if (dbErr) return false;
+    if (previousPath && previousPath !== newPath) {
+      await supabase.storage.from(PHOTO_BUCKET).remove([previousPath]).catch(() => {});
+    }
+    return true;
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -50,7 +89,13 @@ export default function PatientForm({ patient }: { patient?: Patient }) {
         setSaving(false);
         return;
       }
-      toast("Dados do paciente atualizados.");
+      const okPhoto = await applyPhoto(patient.id, patient.photo_path);
+      toast(
+        okPhoto
+          ? "Dados do paciente atualizados."
+          : "Dados salvos, mas a foto não pôde ser enviada.",
+        okPhoto ? undefined : { kind: "error" }
+      );
       router.push(`/pacientes/${patient.id}`);
     } else {
       const { data, error } = await supabase
@@ -63,7 +108,11 @@ export default function PatientForm({ patient }: { patient?: Patient }) {
         setSaving(false);
         return;
       }
-      toast("Paciente cadastrado.");
+      const okPhoto = await applyPhoto(data.id, null);
+      toast(
+        okPhoto ? "Paciente cadastrado." : "Paciente cadastrado, mas a foto não pôde ser enviada.",
+        okPhoto ? undefined : { kind: "error" }
+      );
       router.push(`/pacientes/${data.id}`);
     }
     router.refresh();
@@ -75,12 +124,14 @@ export default function PatientForm({ patient }: { patient?: Patient }) {
         <h2 className="text-[11px] font-semibold text-fg-faint uppercase tracking-wider">
           Identificação
         </h2>
+        <PhotoPicker name={nameForAvatar} currentUrl={photoUrl} onChange={setPhoto} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Nome completo *" className="md:col-span-2">
             <input
               name="full_name"
               required
               defaultValue={patient?.full_name}
+              onChange={(e) => setNameForAvatar(e.target.value)}
               className={inputCls}
               autoComplete="off"
               autoCapitalize="words"

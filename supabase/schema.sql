@@ -20,6 +20,7 @@ create table if not exists public.patients (
   referring_doctor text,          -- médico solicitante
   notes text,
   status text not null default 'ativo' check (status in ('ativo', 'alta', 'inativo')),
+  photo_path text,                -- foto de perfil (bucket "documentos", pasta <id>/foto/)
   created_at timestamptz not null default now()
 );
 

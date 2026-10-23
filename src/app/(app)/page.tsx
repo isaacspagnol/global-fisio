@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import type { Appointment } from "@/lib/types";
+import { signPhotoUrls } from "@/lib/photos";
 import {
   APPT_STATUS,
   Avatar,
@@ -36,7 +37,7 @@ export default async function DashboardPage() {
       .eq("status", "ativo"),
     supabase
       .from("appointments")
-      .select("*, patients(id, full_name)")
+      .select("*, patients(id, full_name, photo_path)")
       .gte("starts_at", todayStart.toISOString())
       .lte("starts_at", todayEnd.toISOString())
       .order("starts_at"),
@@ -51,6 +52,12 @@ export default async function DashboardPage() {
 
   const activePatients = patientsRes.count ?? 0;
   const todayAppts = (todayApptsRes.data ?? []) as Appointment[];
+  const photos = await signPhotoUrls(
+    supabase,
+    todayAppts.map((a) => a.patients?.photo_path)
+  );
+  const photoOf = (a: Appointment) =>
+    a.patients?.photo_path ? photos.get(a.patients.photo_path) ?? null : null;
   const sessionsWeek = sessionsWeekRes.count ?? 0;
 
   const nowMs = new Date().getTime();
@@ -115,7 +122,7 @@ export default async function DashboardPage() {
             Próximo atendimento
           </p>
           <div className="flex items-center gap-3">
-            <Avatar name={nextAppt.patients?.full_name ?? "P"} />
+            <Avatar name={nextAppt.patients?.full_name ?? "P"} src={photoOf(nextAppt)} />
             <div className="flex-1 min-w-0">
               <p className="font-semibold truncate">
                 {nextAppt.patients?.full_name ?? "Paciente"}
@@ -174,6 +181,7 @@ export default async function DashboardPage() {
                   <span className="text-base font-bold tnum w-12 shrink-0">
                     {format(new Date(a.starts_at), "HH:mm")}
                   </span>
+                  <Avatar name={a.patients?.full_name ?? "P"} src={photoOf(a)} size="sm" />
                   <Link
                     href={`/pacientes/${a.patient_id}`}
                     className="flex-1 min-w-0 py-1"

@@ -25,6 +25,9 @@ const USER = {
   updated_at: new Date().toISOString(),
 };
 
+// ---------------------------------------------------------------- Storage
+const objects = new Map();
+
 // ---------------------------------------------------------------- DB
 const db = {
   patients: [
@@ -41,6 +44,7 @@ const db = {
       referring_doctor: "Dr. Carlos",
       notes: null,
       status: "ativo",
+      photo_path: null,
       created_at: "2026-08-01T12:00:00Z",
     },
   ],
@@ -279,6 +283,78 @@ const server = createServer(async (req, res) => {
   }
 
   // ---------------- REST (PostgREST)
+  // ---------------- Storage (mínimo: upload, URLs assinadas, remoção, leitura)
+  // Objetos ficam em memória: chave "bucket/caminho" → { type, bytes }.
+  const signBatch = url.pathname.match(/^\/storage\/v1\/object\/sign\/([^/]+)$/);
+  if (signBatch && req.method === "POST") {
+    const body = await readBody(req);
+    const paths = body?.paths ?? [];
+    return json(
+      res,
+      200,
+      paths.map((p) => ({
+        path: p,
+        error: objects.has(`${signBatch[1]}/${p}`) ? null : "not found",
+        signedURL: `/object/sign/${signBatch[1]}/${p}?token=mock`,
+      }))
+    );
+  }
+  const storagePath = url.pathname.match(/^\/storage\/v1\/object\/(sign\/)?([^/]+)\/(.+)$/);
+  if (storagePath) {
+    const [, isSign, bucket, key] = storagePath;
+    const full = `${bucket}/${decodeURIComponent(key)}`;
+    if (req.method === "POST" && !isSign) {
+      const chunks = [];
+      for await (const c of req) chunks.push(c);
+      let bytes = Buffer.concat(chunks);
+      let type = req.headers["content-type"] ?? "application/octet-stream";
+      // No navegador o supabase-js envia Blobs como multipart/form-data:
+      // extrai a parte do arquivo (conteúdo + content-type).
+      const boundary = /boundary=(.+)$/.exec(type)?.[1];
+      if (boundary) {
+        const sep = Buffer.from(`--${boundary}`);
+        let start = 0;
+        const parts = [];
+        while (true) {
+          const i = bytes.indexOf(sep, start);
+          if (i < 0) break;
+          const j = bytes.indexOf(sep, i + sep.length);
+          if (j < 0) break;
+          parts.push(bytes.subarray(i + sep.length + 2, j - 2)); // pula CRLF
+          start = j;
+        }
+        const filePart = parts.find((pt) => pt.subarray(0, 400).toString().includes("filename="));
+        if (filePart) {
+          const headerEnd = filePart.indexOf("\r\n\r\n");
+          const headers = filePart.subarray(0, headerEnd).toString();
+          type = /content-type:\s*([^\r\n]+)/i.exec(headers)?.[1] ?? "application/octet-stream";
+          bytes = filePart.subarray(headerEnd + 4);
+        }
+      }
+      objects.set(full, { type, bytes });
+      return json(res, 200, { Key: full, Id: randomUUID() });
+    }
+    if (req.method === "POST" && isSign) {
+      // createSignedUrl (um) — o app usa a versão em lote abaixo, mas fica completo
+      return json(res, 200, { signedURL: `/object/sign/${full}?token=mock` });
+    }
+    if (req.method === "GET") {
+      const obj = objects.get(full);
+      if (!obj) return json(res, 404, { message: "not found" });
+      res.writeHead(200, { "content-type": obj.type, "access-control-allow-origin": "*" });
+      return res.end(obj.bytes);
+    }
+  }
+  const removeMatch = url.pathname.match(/^\/storage\/v1\/object\/([^/]+)$/);
+  if (removeMatch && req.method === "DELETE") {
+    const body = await readBody(req);
+    const removed = [];
+    for (const p of body?.prefixes ?? []) {
+      if (objects.delete(`${removeMatch[1]}/${p}`)) removed.push({ name: p });
+    }
+    return json(res, 200, removed);
+  }
+
   const rest = url.pathname.match(/^\/rest\/v1\/(\w+)$/);
   if (rest) {
     const table = rest[1];
