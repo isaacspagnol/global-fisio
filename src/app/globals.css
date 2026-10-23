@@ -1,28 +1,150 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------
+   Tema: tokens semânticos. Os componentes usam SEMPRE os tokens
+   (bg-surface, text-fg, border-line...) e nunca cores cruas, para o
+   modo escuro funcionar em toda a interface trocando só as variáveis.
+   O modo é definido por `data-theme` no <html> (next-themes).
+   ------------------------------------------------------------------ */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
-  --background: #f6f7f9;
-  --foreground: #101828;
-  --brand: #0e7490;
-  --brand-dark: #155e75;
+  color-scheme: light;
+
+  --bg: #f3f5f8;          /* fundo da página */
+  --surface: #ffffff;     /* cards, sheets, barras */
+  --surface-2: #eef1f5;   /* chips, inputs em destaque, zebra */
+  --surface-3: #e3e8ee;   /* pressed / hover de superfícies */
+  --line: #e2e7ee;        /* bordas sutis */
+  --line-strong: #cbd3dd; /* bordas de inputs */
+
+  --fg: #0f172a;          /* texto principal */
+  --fg-muted: #5b6b7f;    /* texto secundário (≥ 4.5:1 sobre surface) */
+  --fg-faint: #8b98a9;    /* placeholders, ícones inativos */
+
+  --accent: #0e7490;      /* teal clínico — única cor de destaque */
+  --accent-strong: #0b5f78;
+  --accent-fg: #ffffff;
+  --accent-soft: #e0f4f8; /* fundo suave de destaque */
+  --accent-soft-fg: #0b5f78;
+
+  --success: #15803d;
+  --success-soft: #dcfce7;
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --info: #1d4ed8;
+  --info-soft: #dbeafe;
+
+  --nav-bg: #ffffff;
+  --shadow: 0 1px 2px rgb(15 23 42 / 0.05), 0 4px 16px -8px rgb(15 23 42 / 0.12);
+  --shadow-lg: 0 -8px 32px -12px rgb(15 23 42 / 0.25);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, sans-serif;
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0c1117;
+  --surface: #151c24;
+  --surface-2: #1d2630;
+  --surface-3: #27323e;
+  --line: #243040;
+  --line-strong: #344357;
+
+  --fg: #e7edf3;
+  --fg-muted: #9fb0c3;
+  --fg-faint: #6b7d92;
+
+  --accent: #2fc1dc;      /* teal mais claro/dessaturado para fundo escuro */
+  --accent-strong: #5fd3e8;
+  --accent-fg: #06252c;
+  --accent-soft: #10303a;
+  --accent-soft-fg: #7fe0f0;
+
+  --success: #4ade80;
+  --success-soft: #0f2d1c;
+  --warning: #fbbf24;
+  --warning-soft: #2f2410;
+  --danger: #f87171;
+  --danger-soft: #3a1515;
+  --info: #93c5fd;
+  --info-soft: #152238;
+
+  --nav-bg: #11181f;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px -8px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 -8px 32px -12px rgb(0 0 0 / 0.7);
 }
 
 @theme inline {
-  --color-brand: #0e7490;
-  --color-brand-dark: #155e75;
-  --color-brand-light: #ecfeff;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-fg: var(--accent-soft-fg);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  --color-nav: var(--nav-bg);
+
+  /* compat com código antigo */
+  --color-brand: var(--accent);
+  --color-brand-dark: var(--accent-strong);
+  --color-brand-light: var(--accent-soft);
+
+  --shadow-card: var(--shadow);
+  --shadow-sheet: var(--shadow-lg);
+
+  --radius-card: 1rem;
+}
+
+html {
+  background: var(--bg);
+  /* evita "pulo" de layout quando a barra do Safari aparece/some */
+  min-height: 100dvh;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none; /* sem pull-to-refresh acidental durante o registro */
+  /* um elemento mais largo que a tela não pode "desencaixar" o viewport
+     mobile (o que empurra barras fixas para fora da área visível) */
+  overflow-x: clip;
+}
+
+/* Números alinhados em steppers, timers, EVA e doses */
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
+  opacity: 0.7;
 }
 
 /* Mobile: 16px em campos evita o zoom automático do iOS ao focar */
@@ -34,8 +156,126 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   }
 }
 
-/* Feedback de toque sem o highlight azul padrão */
+/* Toque responsivo: sem highlight azul, sem atraso de double-tap-zoom
+   (mantém o pinch-zoom, que é acessibilidade) */
 button,
-a {
+a,
+[role="button"],
+input,
+select,
+textarea,
+label {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Área segura para barras fixas (notch / home indicator) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Esconde a barra de rolagem em listas horizontais (chips) */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Skeleton */
+@keyframes gf-shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface-3) 37%,
+    var(--surface-2) 63%
+  );
+  background-size: 800px 100%;
+  animation: gf-shimmer 1.4s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+/* Toast / sheet: entradas suaves */
+@keyframes gf-slide-up {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes gf-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes gf-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes gf-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.anim-slide-up {
+  animation: gf-slide-up 180ms ease-out both;
+}
+.anim-sheet-in {
+  animation: gf-sheet-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.anim-fade-in {
+  animation: gf-fade-in 160ms ease-out both;
+}
+.anim-pop {
+  animation: gf-pop 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-slide-up,
+  .anim-sheet-in,
+  .anim-fade-in,
+  .anim-pop,
+  .skeleton {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Foco visível e consistente para teclado */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 0;
 }

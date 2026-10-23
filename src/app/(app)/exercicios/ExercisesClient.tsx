@@ -9,24 +9,41 @@ import {
   type Exercise,
   type MeasurementType,
 } from "@/lib/types";
-import { Pencil, Plus, Search, X } from "lucide-react";
-
-const field =
-  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
+import { Dumbbell, Pencil, Plus, Search } from "lucide-react";
+import {
+  Badge,
+  BottomSheet,
+  Button,
+  Card,
+  Chip,
+  ChipRow,
+  EmptyState,
+  Fab,
+  Field,
+  PageHeader,
+  inputCls,
+  useToast,
+} from "@/components/ui";
 
 export default function ExercisesClient({ initial }: { initial: Exercise[] }) {
+  const { toast } = useToast();
   const [exercises, setExercises] = useState(initial);
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("todas");
   const [editing, setEditing] = useState<Exercise | "new" | null>(null);
   const [saving, setSaving] = useState(false);
   const [mType, setMType] = useState<MeasurementType>("series_reps");
 
   const filtered = useMemo(
     () =>
-      exercises.filter((e) =>
-        search ? e.name.toLowerCase().includes(search.toLowerCase()) : true
-      ),
-    [exercises, search]
+      exercises.filter((e) => {
+        if (search && !e.name.toLowerCase().includes(search.toLowerCase()))
+          return false;
+        if (!search && category !== "todas" && e.category !== category)
+          return false;
+        return true;
+      }),
+    [exercises, search, category]
   );
 
   const grouped = useMemo(() => {
@@ -70,255 +87,201 @@ export default function ExercisesClient({ initial }: { initial: Exercise[] }) {
       active: fd.get("active") === "on",
     };
     const supabase = createClient();
-    if (editing && editing !== "new") {
-      await supabase.from("exercises").update(payload).eq("id", editing.id);
-    } else {
-      await supabase.from("exercises").insert(payload);
-    }
+    const { error } =
+      editing && editing !== "new"
+        ? await supabase.from("exercises").update(payload).eq("id", editing.id)
+        : await supabase.from("exercises").insert(payload);
     setSaving(false);
+    if (error) {
+      toast("Não foi possível salvar o exercício.", { kind: "error" });
+      return;
+    }
     setEditing(null);
+    toast(editing === "new" ? "Exercício criado." : "Exercício atualizado.");
     reload();
   }
 
   const current = editing !== "new" ? editing : null;
 
+  function openNew() {
+    setMType("series_reps");
+    setEditing("new");
+  }
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Exercícios</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Catálogo usado nos registros de atendimento
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setMType("series_reps");
-            setEditing("new");
-          }}
-          className="inline-flex items-center gap-2 bg-brand hover:bg-brand-dark text-white text-sm font-medium rounded-lg px-4 py-2.5 transition"
-        >
-          <Plus size={16} /> Novo exercício
-        </button>
-      </div>
+      <PageHeader
+        back="/perfil"
+        title="Exercícios"
+        subtitle="Catálogo usado nos registros de atendimento"
+        action={
+          <Button size="sm" onClick={openNew} className="hidden md:inline-flex">
+            <Plus size={16} /> Novo exercício
+          </Button>
+        }
+      />
 
-      <div className="relative max-w-sm mb-5">
-        <Search
-          size={16}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-        />
+      <label className="relative block mb-3">
+        <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-fg-faint" />
         <input
+          type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar exercício..."
-          className="w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          enterKeyHint="search"
+          className={`${inputCls} pl-11`}
         />
-      </div>
+      </label>
 
-      <div className="space-y-6">
-        {[...grouped.entries()].map(([cat, list]) => (
-          <div key={cat}>
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-              {EXERCISE_CATEGORIES[cat] ?? cat}
-            </h2>
-            <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-              {list.map((ex) => (
-                <div
-                  key={ex.id}
-                  className={`flex items-center gap-3 px-4 py-3 ${
-                    !ex.active ? "opacity-50" : ""
-                  }`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">
-                      {ex.name}
-                      {!ex.active && (
-                        <span className="ml-2 text-[10px] font-semibold text-gray-400 uppercase">
-                          inativo
-                        </span>
-                      )}
-                    </p>
-                    {ex.description && (
-                      <p className="text-xs text-gray-500 truncate">
-                        {ex.description}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-xs text-gray-500 tabular-nums">
-                    {formatDefaults(ex)}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setMType(ex.measurement_type);
-                      setEditing(ex);
-                    }}
-                    className="p-2 text-gray-400 hover:text-brand transition"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      {!search && (
+        <ChipRow className="mb-4">
+          <Chip active={category === "todas"} onClick={() => setCategory("todas")}>
+            Todos
+          </Chip>
+          {Object.entries(EXERCISE_CATEGORIES).map(([k, v]) => (
+            <Chip key={k} active={category === k} onClick={() => setCategory(k)}>
+              {v}
+            </Chip>
+          ))}
+        </ChipRow>
+      )}
 
-      {editing && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-          onClick={() => setEditing(null)}
-        >
-          <form
-            onSubmit={handleSubmit}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">
-                {current ? "Editar exercício" : "Novo exercício"}
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={<Dumbbell size={22} />}
+          title="Nenhum exercício encontrado"
+          action={
+            <Button onClick={openNew}>
+              <Plus size={18} /> Novo exercício
+            </Button>
+          }
+        />
+      ) : (
+        <div className="space-y-5">
+          {[...grouped.entries()].map(([cat, list]) => (
+            <section key={cat}>
+              <h2 className="text-[11px] font-semibold text-fg-faint uppercase tracking-wider mb-1.5 px-0.5">
+                {EXERCISE_CATEGORIES[cat] ?? cat}
               </h2>
-              <button
-                type="button"
-                onClick={() => setEditing(null)}
-                className="p-1 text-gray-500 hover:text-gray-900"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome *
-              </label>
-              <input
-                name="name"
-                required
-                defaultValue={current?.name}
-                className={field}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Categoria
-              </label>
-              <select
-                name="category"
-                defaultValue={current?.category ?? "fortalecimento"}
-                className={field}
-              >
-                {Object.entries(EXERCISE_CATEGORIES).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
+              <Card as="ul" className="divide-y divide-line overflow-hidden">
+                {list.map((ex) => (
+                  <li key={ex.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMType(ex.measurement_type);
+                        setEditing(ex);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 min-h-14 text-left hover:bg-surface-2 active:bg-surface-3 transition-colors ${
+                        !ex.active ? "opacity-60" : ""
+                      }`}
+                    >
+                      <span className="flex-1 min-w-0">
+                        <span className="flex items-center gap-2">
+                          <span className="text-[15px] font-medium truncate">{ex.name}</span>
+                          {!ex.active && <Badge>Inativo</Badge>}
+                        </span>
+                        {ex.description && (
+                          <span className="block text-xs text-fg-muted truncate">
+                            {ex.description}
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-xs text-fg-muted tnum shrink-0">
+                        {formatDefaults(ex)}
+                      </span>
+                      <Pencil size={15} className="text-fg-faint shrink-0" />
+                    </button>
+                  </li>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Descrição
-              </label>
-              <input
-                name="description"
-                defaultValue={current?.description ?? ""}
-                className={field}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Como este exercício é medido?
-              </label>
-              <select
-                value={mType}
-                onChange={(e) => setMType(e.target.value as MeasurementType)}
-                className={field}
-              >
-                {Object.entries(MEASUREMENT_LABEL).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {mType !== "cardio" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Séries padrão
-                  </label>
-                  <input
-                    type="number"
-                    name="default_sets"
-                    min={1}
-                    defaultValue={current?.default_sets ?? 3}
-                    className={field}
-                  />
-                </div>
-              )}
-              {mType === "series_reps" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Repetições padrão
-                  </label>
-                  <input
-                    type="number"
-                    name="default_reps"
-                    min={1}
-                    defaultValue={current?.default_reps ?? 12}
-                    className={field}
-                  />
-                </div>
-              )}
-              {mType === "series_tempo" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tempo padrão (segundos)
-                  </label>
-                  <input
-                    type="number"
-                    name="default_duration"
-                    min={1}
-                    defaultValue={current?.default_duration_seconds ?? 30}
-                    className={field}
-                  />
-                </div>
-              )}
-              {mType === "cardio" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tempo padrão (minutos)
-                  </label>
-                  <input
-                    type="number"
-                    name="default_duration"
-                    min={1}
-                    defaultValue={
-                      current?.default_duration_seconds
-                        ? Math.round(current.default_duration_seconds / 60)
-                        : 10
-                    }
-                    className={field}
-                  />
-                </div>
-              )}
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="active"
-                defaultChecked={current?.active ?? true}
-                className="rounded border-gray-300 text-brand focus:ring-brand"
-              />
-              Ativo (aparece no atendimento)
-            </label>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full bg-brand hover:bg-brand-dark text-white font-medium rounded-lg py-2.5 text-sm transition disabled:opacity-60"
-            >
-              {saving ? "Salvando..." : "Salvar"}
-            </button>
-          </form>
+              </Card>
+            </section>
+          ))}
         </div>
       )}
+
+      <Fab onClick={openNew} label="Novo exercício">
+        <Plus size={22} /> Exercício
+      </Fab>
+
+      <BottomSheet
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title={current ? "Editar exercício" : "Novo exercício"}
+        tall
+      >
+        <form onSubmit={handleSubmit} className="space-y-4 pb-2" key={current?.id ?? "new"}>
+          <Field label="Nome *">
+            <input name="name" required defaultValue={current?.name} className={inputCls} autoComplete="off" />
+          </Field>
+          <Field label="Categoria">
+            <select name="category" defaultValue={current?.category ?? "fortalecimento"} className={inputCls}>
+              {Object.entries(EXERCISE_CATEGORIES).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Descrição">
+            <input name="description" defaultValue={current?.description ?? ""} className={inputCls} />
+          </Field>
+          <Field label="Como este exercício é medido?">
+            <select
+              value={mType}
+              onChange={(e) => setMType(e.target.value as MeasurementType)}
+              className={inputCls}
+            >
+              {Object.entries(MEASUREMENT_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            {mType !== "cardio" && (
+              <Field label="Séries padrão">
+                <input type="number" inputMode="numeric" name="default_sets" min={1} defaultValue={current?.default_sets ?? 3} className={inputCls} />
+              </Field>
+            )}
+            {mType === "series_reps" && (
+              <Field label="Repetições padrão">
+                <input type="number" inputMode="numeric" name="default_reps" min={1} defaultValue={current?.default_reps ?? 12} className={inputCls} />
+              </Field>
+            )}
+            {mType === "series_tempo" && (
+              <Field label="Tempo padrão (s)">
+                <input type="number" inputMode="numeric" name="default_duration" min={1} defaultValue={current?.default_duration_seconds ?? 30} className={inputCls} />
+              </Field>
+            )}
+            {mType === "cardio" && (
+              <Field label="Tempo padrão (min)">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  name="default_duration"
+                  min={1}
+                  defaultValue={current?.default_duration_seconds ? Math.round(current.default_duration_seconds / 60) : 10}
+                  className={inputCls}
+                />
+              </Field>
+            )}
+          </div>
+          <label className="flex items-center gap-3 min-h-12 text-sm">
+            <input
+              type="checkbox"
+              name="active"
+              defaultChecked={current?.active ?? true}
+              className="w-5 h-5 rounded accent-[var(--accent)]"
+            />
+            Ativo (aparece no atendimento)
+          </label>
+          <Button type="submit" size="lg" className="w-full" loading={saving}>
+            {saving ? "Salvando..." : "Salvar"}
+          </Button>
+        </form>
+      </BottomSheet>
     </div>
   );
 }

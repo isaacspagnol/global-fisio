@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Activity } from "lucide-react";
+import { Button, Field, inputCls } from "@/components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,57 +32,53 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyan-800 to-cyan-950 p-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-8">
+    <div className="min-h-dvh flex flex-col justify-end md:justify-center md:items-center bg-bg md:bg-[radial-gradient(ellipse_at_top,var(--accent-soft),var(--bg)_60%)]">
+      <div className="w-full md:max-w-sm bg-surface md:rounded-3xl md:border md:border-line md:shadow-card rounded-t-3xl px-6 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))] md:p-8 flex-1 md:flex-none flex flex-col justify-center">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-brand flex items-center justify-center mb-3">
-            <Activity className="text-white" size={28} />
+          <div className="w-16 h-16 rounded-2xl bg-accent text-accent-fg flex items-center justify-center mb-4 shadow-card">
+            <Activity size={32} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Global Fisio</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold tracking-tight">Global Fisio</h1>
+          <p className="text-sm text-fg-muted mt-1">
             Gestão de pacientes de fisioterapia
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              E-mail
-            </label>
+          <Field label="E-mail">
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className={inputCls}
               placeholder="seu@email.com"
+              autoComplete="username"
+              inputMode="email"
+              autoCapitalize="none"
+              enterKeyHint="next"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Senha
-            </label>
+          </Field>
+          <Field label="Senha">
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className={inputCls}
               placeholder="••••••••"
+              autoComplete="current-password"
+              enterKeyHint="go"
             />
-          </div>
+          </Field>
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+            <p role="alert" className="text-sm font-medium text-danger bg-danger-soft rounded-xl px-3.5 py-2.5">
               {error}
             </p>
           )}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-brand hover:bg-brand-dark text-white font-medium rounded-lg py-2.5 text-sm transition disabled:opacity-60"
-          >
+          <Button type="submit" size="lg" className="w-full" loading={loading}>
             {loading ? "Entrando..." : "Entrar"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

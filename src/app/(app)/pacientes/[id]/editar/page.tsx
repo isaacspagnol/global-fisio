@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import PatientForm from "@/components/PatientForm";
+import { PageHeader } from "@/components/ui";
 import type { Patient } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +20,12 @@ export default async function EditPatientPage({
     .single();
 
   if (!data) notFound();
+  const patient = data as Patient;
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold mb-6">Editar paciente</h1>
-      <PatientForm patient={data as Patient} />
+      <PageHeader back={`/pacientes/${id}`} title="Editar paciente" subtitle={patient.full_name} />
+      <PatientForm patient={patient} />
     </div>
   );
 }

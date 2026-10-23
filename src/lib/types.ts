@@ -165,6 +165,11 @@ export function evaColor(eva: number): string {
   return "#dc2626"; // vermelho
 }
 
+/** Cor do texto sobre o fundo de evaColor (amarelo/lima pedem texto escuro). */
+export function evaTextColor(eva: number): string {
+  return eva >= 3 && eva <= 6 ? "#1a1a1a" : "#ffffff";
+}
+
 export function evaLabel(eva: number): string {
   if (eva === 0) return "Sem dor";
   if (eva <= 3) return "Dor leve";

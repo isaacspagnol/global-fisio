@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
 import ReportDocument from "@/lib/pdf/ReportDocument";
-import type { Patient } from "@/lib/types";
+import type { Patient, TherapistProfile } from "@/lib/types";
 
 const patient: Patient = {
   id: "p1",
@@ -70,7 +70,7 @@ describe("Relatório PDF", () => {
   });
 
   it("gera PDF com os dados do fisioterapeuta responsável", async () => {
-    const therapist: any = {
+    const therapist: TherapistProfile = {
       id: "t1",
       full_name: "Dra. Ana Fisioterapeuta",
       crefito: "CREFITO-8/98765-F",

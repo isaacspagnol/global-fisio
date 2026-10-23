@@ -1,13 +1,13 @@
 # Global Fisio
 
-Sistema de gestão de pacientes de fisioterapia — Next.js 15 + Supabase.
+Sistema de gestão de pacientes de fisioterapia — Next.js 16 + Supabase. Mobile-first (≈90% do uso é no celular), com modo noturno.
 
 ## Funcionalidades
 
 - **Pacientes**: cadastro completo (plano de saúde, carteirinha, diagnóstico, médico solicitante), busca e status (ativo / alta / inativo).
 - **Documentos**: upload de exames, raio-x, laudos e receitas por paciente, com visualização de imagens e PDFs direto no sistema (armazenados em bucket privado do Supabase Storage).
-- **Atendimento**: registro diário da evolução com **exercícios pré-cadastrados** — o fisio só toca no exercício, ajusta os campos do tipo dele (séries/reps/carga, séries/tempo ou tempo/velocidade/distância/inclinação) e marca a **escala EVA de dor (0–10)** de cada exercício. Documentos do paciente ficam acessíveis em painel lateral durante o atendimento.
-- **Agenda**: visão semanal com criação de consultas, status (concluído, falta, cancelado) e atalho para iniciar o atendimento.
+- **Atendimento** (tela principal, desenhada para uso em pé, com uma mão): cards por exercício **pré-preenchidos com a última sessão** ("Repetir última sessão" em um toque), steppers de 48 px, **EVA 0–10** em dois blocos de botões grandes (obrigatória), timer para isometrias, "Concluir" recolhe o card e abre o próximo, remover com **Desfazer**, **rascunho automático** no aparelho (nada se perde se o navegador fechar), salvamento com timeout e aviso de offline, tela não apaga (Wake Lock), documentos do paciente em bottom sheet. Sessões salvas podem ser **editadas** depois. Ao finalizar, a consulta do dia na Agenda é marcada como concluída.
+- **Agenda**: no celular, faixa de 7 dias + lista do dia; no desktop, grade semanal. Criação de consultas, status (concluído, falta, cancelado — com desfazer) e atalho para iniciar o atendimento.
 - **Exercícios**: catálogo editável (~35 exercícios no seed), cada um com seu **tipo de medição**: séries x repetições (+ carga), séries x tempo (isometrias/alongamentos) ou cardio (tempo, velocidade, distância, inclinação — esteira, bicicleta, marcha). A tela de atendimento pede apenas os campos do tipo certo.
 - **Relatório PDF**: gera automaticamente o relatório do tratamento para o plano de saúde a partir dos registros diários — identificação do paciente, resumo (nº de sessões, período, evolução da EVA) e detalhamento sessão a sessão, com os dados do **fisioterapeuta responsável** (nome, CREFITO, clínica — cadastrados na tela Perfil) no cabeçalho e na assinatura.
 
@@ -42,6 +42,14 @@ Acesse http://localhost:3000 e faça login com o usuário criado no passo 1.4.
 
 O projeto está pronto para deploy na Vercel: importe o repositório, adicione as duas variáveis de ambiente (`NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`) e publique.
 
+## Interface mobile e modo noturno
+
+- Tokens semânticos de cor em `src/app/globals.css` (`bg-surface`, `text-fg`, `text-fg-muted`, `bg-accent`, `border-line`…). **Nunca use cores cruas** (`bg-white`, `text-gray-500`) nos componentes — é isso que faz o modo escuro funcionar em toda a UI.
+- Modo escuro: `next-themes` com atributo `data-theme` no `<html>` (`src/components/ThemeProvider.tsx`); variante `dark:` do Tailwind configurada por `@custom-variant`. Seleção **Sistema / Claro / Escuro** em Perfil → Aparência.
+- Componentes base em `src/components/ui/` (Button, BottomSheet, Toast com "Desfazer", ConfirmDialog, Chip, Badge, Stepper, Skeleton, EmptyState, Fab…).
+- Tab bar com 4 abas (Início, Pacientes, Agenda, Perfil); o catálogo de exercícios fica em Perfil. No atendimento a tab bar some (fluxo em tela cheia com barra de ações própria).
+- Instalável como app (manifest em `src/app/manifest.ts`, ícones em `public/icons/`).
+
 ## Estrutura
 
 ```
@@ -51,7 +59,8 @@ src/middleware.ts         Proteção de rotas (redireciona p/ login)
 src/lib/supabase/         Clients Supabase (browser e server)
 src/lib/pdf/              Documento PDF do relatório (@react-pdf/renderer)
 src/app/login/            Tela de login
-src/app/(app)/            Área logada: dashboard, pacientes, agenda, exercícios
+src/components/ui/        Componentes base (botões, sheets, toasts, chips…)
+src/app/(app)/            Área logada: dashboard, pacientes, agenda, exercícios, perfil
 src/app/(app)/pacientes/[id]/atendimento/   Registro da sessão com EVA
 src/app/api/relatorio/[patientId]/          Geração do PDF
 ```

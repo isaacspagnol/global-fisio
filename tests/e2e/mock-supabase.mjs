@@ -323,7 +323,13 @@ const server = createServer(async (req, res) => {
         ...defaultsFor(table),
         ...r,
       }));
-      db[table].push(...rows);
+      // upsert (Prefer: resolution=merge-duplicates): atualiza linhas com o mesmo id
+      const merge = prefer.includes("merge-duplicates");
+      for (const row of rows) {
+        const existing = merge ? db[table].find((x) => x.id === row.id) : null;
+        if (existing) Object.assign(existing, row);
+        else db[table].push(row);
+      }
       const projected = rows.map((r) => projectRow(table, r, sel));
       if (prefer.includes("return=representation")) {
         return json(res, 201, wantsObject ? projected[0] : projected);

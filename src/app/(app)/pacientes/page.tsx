@@ -1,127 +1,147 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Plus, Search } from "lucide-react";
+import { ChevronRight, Plus, Search, Users } from "lucide-react";
 import type { Patient } from "@/lib/types";
+import {
+  Avatar,
+  Badge,
+  Card,
+  Chip,
+  ChipRow,
+  EmptyState,
+  Fab,
+  LinkButton,
+  PATIENT_STATUS,
+  PageHeader,
+} from "@/components/ui";
 
 export const dynamic = "force-dynamic";
+
+const FILTERS = [
+  { key: "todos", label: "Todos" },
+  { key: "ativo", label: "Ativos" },
+  { key: "alta", label: "Alta" },
+  { key: "inativo", label: "Inativos" },
+];
 
 export default async function PatientsPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
-  const { q, status } = await searchParams;
+  const { q = "", status = "todos" } = await searchParams;
   const supabase = await createClient();
 
-  let query = supabase
-    .from("patients")
-    .select("*")
-    .order("full_name");
-
+  let query = supabase.from("patients").select("*").order("full_name");
   if (q) query = query.ilike("full_name", `%${q}%`);
   if (status && status !== "todos") query = query.eq("status", status);
 
   const { data } = await query;
   const patients = (data ?? []) as Patient[];
 
-  const statusStyle: Record<string, string> = {
-    ativo: "bg-green-50 text-green-700",
-    alta: "bg-blue-50 text-blue-700",
-    inativo: "bg-gray-100 text-gray-500",
+  const hrefFor = (s: string) => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (s !== "todos") p.set("status", s);
+    const qs = p.toString();
+    return `/pacientes${qs ? `?${qs}` : ""}`;
   };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Pacientes</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {patients.length} paciente{patients.length === 1 ? "" : "s"}
-          </p>
-        </div>
-        <Link
-          href="/pacientes/novo"
-          className="inline-flex items-center gap-2 bg-brand hover:bg-brand-dark text-white text-sm font-medium rounded-lg px-4 py-2.5 transition"
-        >
-          <Plus size={16} /> Novo paciente
-        </Link>
-      </div>
+      <PageHeader
+        title="Pacientes"
+        subtitle={`${patients.length} paciente${patients.length === 1 ? "" : "s"}${
+          status !== "todos" ? ` · ${FILTERS.find((f) => f.key === status)?.label.toLowerCase()}` : ""
+        }`}
+        action={
+          <LinkButton href="/pacientes/novo" size="sm" className="hidden md:inline-flex">
+            <Plus size={16} /> Novo paciente
+          </LinkButton>
+        }
+      />
 
-      <form className="flex gap-3 mb-5">
-        <div className="relative flex-1 max-w-sm">
+      {/* Busca: Enter/“Buscar” do teclado envia o formulário */}
+      <form className="mb-3" role="search">
+        {status !== "todos" && <input type="hidden" name="status" value={status} />}
+        <label className="relative block">
           <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={18}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-fg-faint"
           />
           <input
+            type="search"
             name="q"
             defaultValue={q}
             placeholder="Buscar por nome..."
-            className="w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            enterKeyHint="search"
+            autoComplete="off"
+            className="w-full h-12 rounded-xl border border-line-strong bg-surface pl-11 pr-3 text-base md:text-sm placeholder:text-fg-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
           />
-        </div>
-        <select
-          name="status"
-          defaultValue={status ?? "todos"}
-          className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-        >
-          <option value="todos">Todos</option>
-          <option value="ativo">Ativos</option>
-          <option value="alta">Alta</option>
-          <option value="inativo">Inativos</option>
-        </select>
-        <button
-          type="submit"
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition"
-        >
-          Filtrar
-        </button>
+        </label>
       </form>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {patients.length === 0 ? (
-          <p className="px-5 py-10 text-sm text-gray-500 text-center">
-            Nenhum paciente encontrado.{" "}
-            <Link href="/pacientes/novo" className="text-brand hover:underline">
-              Cadastrar o primeiro
-            </Link>
-          </p>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {patients.map((p) => (
+      <ChipRow className="mb-4">
+        {FILTERS.map((f) => (
+          <Chip key={f.key} href={hrefFor(f.key)} active={status === f.key}>
+            {f.label}
+          </Chip>
+        ))}
+      </ChipRow>
+
+      {patients.length === 0 ? (
+        <EmptyState
+          icon={<Users size={22} />}
+          title={q ? `Nenhum paciente para “${q}”` : "Nenhum paciente por aqui"}
+          description={
+            q
+              ? "Confira a grafia ou limpe o filtro de status."
+              : "Cadastre o primeiro paciente para começar os atendimentos."
+          }
+          action={
+            q ? (
+              <LinkButton href="/pacientes" variant="secondary">
+                Limpar busca
+              </LinkButton>
+            ) : (
+              <LinkButton href="/pacientes/novo">
+                <Plus size={18} /> Cadastrar paciente
+              </LinkButton>
+            )
+          }
+        />
+      ) : (
+        <Card as="ul" className="divide-y divide-line overflow-hidden">
+          {patients.map((p) => {
+            const st = PATIENT_STATUS[p.status] ?? PATIENT_STATUS.ativo;
+            return (
               <li key={p.id}>
                 <Link
                   href={`/pacientes/${p.id}`}
-                  className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition"
+                  className="flex items-center gap-3 px-4 py-3 min-h-[68px] hover:bg-surface-2 active:bg-surface-3 transition-colors"
                 >
-                  <div className="w-10 h-10 rounded-full bg-cyan-100 text-brand-dark flex items-center justify-center font-semibold text-sm shrink-0">
-                    {p.full_name
-                      .split(" ")
-                      .slice(0, 2)
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
+                  <Avatar name={p.full_name} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[15px] font-medium truncate">
                       {p.full_name}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
+                    </span>
+                    <span className="block text-xs text-fg-muted truncate mt-0.5">
                       {p.diagnosis || "Sem diagnóstico registrado"}
                       {p.health_insurance ? ` · ${p.health_insurance}` : ""}
-                    </p>
-                  </div>
-                  <span
-                    className={`text-[11px] font-medium rounded-full px-2.5 py-1 ${statusStyle[p.status]}`}
-                  >
-                    {p.status}
+                    </span>
                   </span>
+                  <Badge tone={st.tone}>{st.label}</Badge>
+                  <ChevronRight size={18} className="text-fg-faint shrink-0 -mr-1" />
                 </Link>
               </li>
-            ))}
-          </ul>
-        )}
-      </div>
+            );
+          })}
+        </Card>
+      )}
+
+      <Fab href="/pacientes/novo" label="Novo paciente">
+        <Plus size={22} /> Paciente
+      </Fab>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { CREDENTIALS, login } from "./helpers";
+import { login } from "./helpers";
 
 test.describe("Autenticação", () => {
   test("rejeita credenciais inválidas", async ({ page }) => {
@@ -17,7 +17,7 @@ test.describe("Autenticação", () => {
 
   test("faz login e mostra o dashboard", async ({ page }) => {
     await login(page);
-    await expect(page.getByText("Resumo do seu dia na clínica")).toBeVisible();
+    await expect(page.getByText("Agenda de hoje")).toBeVisible();
     await expect(page.getByText("Pacientes ativos")).toBeVisible();
   });
 });
@@ -30,7 +30,9 @@ test.describe("Pacientes", () => {
     await expect(
       page.getByRole("heading", { name: "Paciente Exemplo" })
     ).toBeVisible();
-    await expect(page.getByText("Iniciar atendimento")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Iniciar atendimento" })
+    ).toBeVisible();
   });
 
   test("cadastra um novo paciente", async ({ page }) => {
@@ -63,24 +65,29 @@ test.describe("Atendimento com EVA", () => {
 
     // adiciona exercício do catálogo
     await page.getByRole("button", { name: /Agachamento livre/ }).click();
-    await expect(page.getByText("1. Agachamento livre")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 3, name: "Agachamento livre" })
+    ).toBeVisible();
 
-    // tenta salvar sem EVA -> erro
-    await page.getByRole("button", { name: /Salvar sessão/ }).click();
+    // tenta finalizar sem EVA -> erro
+    await page.getByRole("button", { name: /Finalizar atendimento/ }).click();
     await expect(
       page.getByText("Registre a escala EVA de dor em todos os exercícios.")
     ).toBeVisible();
 
     // marca EVA 6
-    await page.getByRole("button", { name: "6", exact: true }).click();
-    await expect(page.getByText(/6 — Dor moderada/)).toBeVisible();
+    await page.getByRole("radio", { name: /^Dor 6 de 10/ }).click();
+    await expect(page.getByText("Dor moderada")).toBeVisible();
 
-    // salva
-    await page.getByRole("button", { name: /Salvar sessão/ }).click();
+    // finaliza
+    await page.getByRole("button", { name: /Finalizar atendimento/ }).click();
 
-    // volta para a ficha e mostra a evolução
-    await expect(page).toHaveURL(/\/pacientes\/[\w-]+$/, { timeout: 20_000 });
-    await expect(page.getByText("EVA 6").first()).toBeVisible();
+    // volta para a ficha com o resumo da sessão salva e a evolução
+    await expect(page).toHaveURL(/\/pacientes\/[\w-]+\?saved=1$/, {
+      timeout: 20_000,
+    });
+    await expect(page.getByText(/EVA média 6,0/).first()).toBeVisible();
+    await expect(page.getByLabel(/^EVA 6 — Dor moderada/).first()).toBeVisible();
     await expect(page.getByText("Agachamento livre").first()).toBeVisible();
   });
 });
@@ -95,9 +102,13 @@ test.describe("Agenda", () => {
       .selectOption({ label: "Paciente Exemplo" });
     await page.locator('input[name="time"]').fill("09:30");
     await page.locator('form button[type="submit"]').click();
-    await expect(page.getByText("09:30 · 60min")).toBeVisible({
-      timeout: 15_000,
-    });
+    // a grade semanal (desktop) e a lista do dia (mobile) coexistem no DOM
+    await expect(
+      page.getByText("09:30").filter({ visible: true }).first()
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByText("60 min").filter({ visible: true }).first()
+    ).toBeVisible();
   });
 });
 
@@ -113,7 +124,7 @@ test.describe("Perfil do fisioterapeuta", () => {
     await page.locator('input[name="crefito"]').fill("CREFITO-8/123456-F");
     await page.locator('input[name="clinic_name"]').fill("Clínica E2E");
     await page.getByRole("button", { name: "Salvar dados" }).click();
-    await expect(page.getByText(/Dados salvos/)).toBeVisible();
+    await expect(page.getByText(/Dados salvos/).first()).toBeVisible();
 
     // recarrega e confere persistência
     await page.goto("/perfil");

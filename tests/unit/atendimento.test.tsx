@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AtendimentoClient from "@/app/(app)/pacientes/[id]/atendimento/AtendimentoClient";
+import { ToastProvider } from "@/components/ui/Toast";
 import type { Exercise, Patient } from "@/lib/types";
 
 const pushMock = vi.fn();
@@ -11,26 +12,35 @@ vi.mock("next/navigation", () => ({
 
 const insertedRows: Record<string, unknown[]> = {};
 
+/** Builder encadeável mínimo que resolve com { error: null }. */
+function okBuilder() {
+  const b: Record<string, unknown> = {};
+  for (const m of ["eq", "in", "gte", "lte", "order", "select"]) b[m] = () => b;
+  b.single = async () => ({ data: { id: "new-session-id" }, error: null });
+  b.then = (resolve: (v: { error: null }) => void) => resolve({ error: null });
+  return b;
+}
+
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
-    from: (table: string) => ({
-      insert: (payload: unknown) => {
+    from: (table: string) => {
+      const record = (payload: unknown) => {
         const rows = Array.isArray(payload) ? payload : [payload];
         insertedRows[table] = [...(insertedRows[table] ?? []), ...rows];
-        return {
-          select: () => ({
-            single: async () => ({ data: { id: "new-session-id" }, error: null }),
+        return okBuilder();
+      };
+      return {
+        insert: record,
+        upsert: record,
+        update: () => okBuilder(),
+        delete: () => okBuilder(),
+        select: () => ({
+          eq: () => ({
+            order: async () => ({ data: [], error: null }),
           }),
-          then: (resolve: (v: { error: null }) => void) =>
-            resolve({ error: null }),
-        };
-      },
-      select: () => ({
-        eq: () => ({
-          order: async () => ({ data: [], error: null }),
         }),
-      }),
-    }),
+      };
+    },
   }),
 }));
 
@@ -93,7 +103,14 @@ describe("Tela de atendimento", () => {
   beforeEach(() => {
     pushMock.mockClear();
     for (const k of Object.keys(insertedRows)) delete insertedRows[k];
+    window.localStorage.clear();
   });
+
+  /** Card expandido do exercício (li#entry-...) a partir do título. */
+  function cardOf(name: string): HTMLElement {
+    const title = screen.getByRole("heading", { level: 3, name });
+    return title.closest("li") as HTMLElement;
+  }
 
   it("mostra o catálogo de exercícios pré-cadastrados", () => {
     render(<AtendimentoClient patient={patient} exercises={exercises} />);
@@ -105,12 +122,11 @@ describe("Tela de atendimento", () => {
     const user = userEvent.setup();
     render(<AtendimentoClient patient={patient} exercises={exercises} />);
     await user.click(screen.getByText("Agachamento livre"));
-    const title = screen.getByText("1. Agachamento livre");
-    expect(title).toBeInTheDocument();
+    const card = cardOf("Agachamento livre");
+    expect(card).toBeInTheDocument();
     // steppers com os padrões 3 séries x 15 reps
-    const card = title.closest("div")!.parentElement as HTMLElement;
-    expect(within(card).getByText("15")).toBeInTheDocument();
-    expect(within(card).getAllByText("3").length).toBeGreaterThan(0);
+    expect(within(card).getByLabelText("séries")).toHaveValue("3");
+    expect(within(card).getByLabelText("repetições")).toHaveValue("15");
   });
 
   it("filtra o catálogo pela busca", async () => {
@@ -128,20 +144,19 @@ describe("Tela de atendimento", () => {
     const user = userEvent.setup();
     render(<AtendimentoClient patient={patient} exercises={exercises} />);
     await user.click(screen.getByText("Agachamento livre"));
-    await user.click(screen.getByRole("button", { name: /Salvar sessão/ }));
+    await user.click(screen.getAllByRole("button", { name: /Finalizar atendimento/ })[0]);
     expect(
       screen.getByText("Registre a escala EVA de dor em todos os exercícios.")
     ).toBeInTheDocument();
     expect(insertedRows["sessions"]).toBeUndefined();
   });
 
-  it("não permite salvar sessão vazia", async () => {
-    const user = userEvent.setup();
+  it("não permite salvar sessão vazia", () => {
     render(<AtendimentoClient patient={patient} exercises={exercises} />);
-    await user.click(screen.getByRole("button", { name: /Salvar sessão/ }));
-    expect(
-      screen.getByText("Adicione pelo menos um exercício.")
-    ).toBeInTheDocument();
+    for (const b of screen.getAllByRole("button", { name: /Finalizar atendimento/ })) {
+      expect(b).toBeDisabled();
+    }
+    expect(insertedRows["sessions"]).toBeUndefined();
   });
 
   it("salva sessão e exercícios com EVA e redireciona", async () => {
@@ -149,20 +164,20 @@ describe("Tela de atendimento", () => {
     render(<AtendimentoClient patient={patient} exercises={exercises} />);
     await user.click(screen.getByText("Agachamento livre"));
 
-    const card = screen
-      .getByText("1. Agachamento livre")
-      .closest("div")!.parentElement!;
+    const card = cardOf("Agachamento livre");
     // seleciona EVA 6
-    await user.click(within(card as HTMLElement).getByRole("button", { name: "6" }));
-    expect(screen.getByText(/6 — Dor moderada/)).toBeInTheDocument();
+    await user.click(within(card).getByRole("radio", { name: /^Dor 6 de 10/ }));
+    expect(within(card).getByRole("radio", { name: /^Dor 6 de 10/ })).toHaveAttribute("aria-checked", "true");
+    expect(within(card).getByText("Dor moderada")).toBeInTheDocument();
 
-    // observação por exercício
+    // observação por exercício (abre inline)
+    await user.click(within(card).getByRole("button", { name: /Observação/ }));
     await user.type(
-      within(card as HTMLElement).getByPlaceholderText(/dor no final da amplitude/),
+      within(card).getByPlaceholderText(/dor no final da amplitude/),
       "Compensou com o tronco"
     );
 
-    await user.click(screen.getByRole("button", { name: /Salvar sessão/ }));
+    await user.click(screen.getAllByRole("button", { name: /Finalizar atendimento/ })[0]);
 
     expect(insertedRows["sessions"]).toHaveLength(1);
     expect(insertedRows["session_exercises"]).toHaveLength(1);
@@ -172,7 +187,7 @@ describe("Tela de atendimento", () => {
     expect(row.reps).toBe(15);
     expect(row.pain_eva).toBe(6);
     expect(row.notes).toBe("Compensou com o tronco");
-    expect(pushMock).toHaveBeenCalledWith("/pacientes/p1");
+    expect(pushMock).toHaveBeenCalledWith("/pacientes/p1?saved=1");
   });
 
   it("exercício cardio pede tempo/velocidade/distância/inclinação (sem séries e reps)", async () => {
@@ -181,19 +196,17 @@ describe("Tela de atendimento", () => {
     await user.click(screen.getByText("Esteira (caminhada)"));
 
     // campos de cardio visíveis, campos de séries/reps ausentes
-    expect(screen.getByText("Tempo (min)")).toBeInTheDocument();
-    expect(screen.getByText("Velocidade (km/h)")).toBeInTheDocument();
-    expect(screen.getByText("Distância (m)")).toBeInTheDocument();
-    expect(screen.getByText("Elevação/Inclinação (%)")).toBeInTheDocument();
-    expect(screen.queryByText("Séries")).not.toBeInTheDocument();
-    expect(screen.queryByText("Repetições")).not.toBeInTheDocument();
+    const card = cardOf("Esteira (caminhada)");
+    expect(within(card).getByText(/^Tempo/)).toBeInTheDocument();
+    expect(within(card).getByText(/^Velocidade/)).toBeInTheDocument();
+    expect(within(card).getByText(/^Distância/)).toBeInTheDocument();
+    expect(within(card).getByText(/^Inclinação/)).toBeInTheDocument();
+    expect(within(card).queryByText("Séries")).not.toBeInTheDocument();
+    expect(within(card).queryByText("Repetições")).not.toBeInTheDocument();
 
-    const card = screen
-      .getByText("1. Esteira (caminhada)")
-      .closest("div")!.parentElement as HTMLElement;
-    await user.type(within(card).getAllByPlaceholderText("—")[0], "6"); // velocidade
-    await user.click(within(card).getByRole("button", { name: "3" }));
-    await user.click(screen.getByRole("button", { name: /Salvar sessão/ }));
+    await user.type(within(card).getByLabelText(/^Velocidade/), "6");
+    await user.click(within(card).getByRole("radio", { name: /^Dor 3 de 10/ }));
+    await user.click(screen.getAllByRole("button", { name: /Finalizar atendimento/ })[0]);
 
     const row = insertedRows["session_exercises"]![0] as Record<string, unknown>;
     expect(row.exercise_id).toBe("ex3");
@@ -209,19 +222,168 @@ describe("Tela de atendimento", () => {
     render(<AtendimentoClient patient={patient} exercises={exercises} />);
     await user.click(screen.getByText("Alongamento de panturrilha"));
 
-    expect(screen.getByText("Tempo por série (segundos)")).toBeInTheDocument();
-    expect(screen.queryByText("Repetições")).not.toBeInTheDocument();
+    const card = cardOf("Alongamento de panturrilha");
+    expect(within(card).getByText(/^Tempo por série/)).toBeInTheDocument();
+    expect(within(card).queryByText("Repetições")).not.toBeInTheDocument();
 
-    const card = screen
-      .getByText("1. Alongamento de panturrilha")
-      .closest("div")!.parentElement as HTMLElement;
-    await user.click(within(card).getByRole("button", { name: "2" }));
-    await user.click(screen.getByRole("button", { name: /Salvar sessão/ }));
+    await user.click(within(card).getByRole("radio", { name: /^Dor 2 de 10/ }));
+    await user.click(screen.getAllByRole("button", { name: /Finalizar atendimento/ })[0]);
 
     const row = insertedRows["session_exercises"]![0] as Record<string, unknown>;
     expect(row.sets).toBe(3);
     expect(row.reps).toBeNull();
     expect(row.duration_seconds).toBe(30);
     expect(row.pain_eva).toBe(2);
+  });
+
+  it("pré-preenche com a última sessão e 'Concluir' recolhe o card abrindo o próximo", async () => {
+    const user = userEvent.setup();
+    const lastSession = {
+      session_date: "2026-10-20",
+      items: [
+        {
+          exercise: exercises[0],
+          sets: 4,
+          reps: 10,
+          load_kg: 20,
+          duration_seconds: null,
+          speed_kmh: null,
+          distance_m: null,
+          incline_pct: null,
+          pain_eva: 4,
+        },
+        {
+          exercise: exercises[1],
+          sets: 3,
+          reps: null,
+          load_kg: null,
+          duration_seconds: 45,
+          speed_kmh: null,
+          distance_m: null,
+          incline_pct: null,
+          pain_eva: 2,
+        },
+      ],
+    };
+    render(
+      <AtendimentoClient
+        patient={patient}
+        exercises={exercises}
+        lastSession={lastSession}
+      />
+    );
+    await user.click(screen.getByRole("button", { name: /Repetir última sessão/ }));
+
+    // 1º card aberto com valores da última sessão; 2º recolhido
+    const card = cardOf("Agachamento livre");
+    expect(within(card).getByLabelText("séries")).toHaveValue("4");
+    expect(within(card).getByLabelText("repetições")).toHaveValue("10");
+    expect(within(card).getByLabelText(/^Carga/)).toHaveValue("20");
+    expect(within(card).getByText(/Última \(20\/10\)/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Abrir Alongamento de panturrilha/ })).toBeInTheDocument();
+
+    // sem EVA não há botão Concluir
+    expect(within(card).queryByRole("button", { name: /^Concluir/ })).not.toBeInTheDocument();
+    await user.click(within(card).getByRole("radio", { name: /^Dor 3 de 10/ }));
+    await user.click(within(card).getByRole("button", { name: /^Concluir/ }));
+
+    // o 1º virou linha recolhida com EVA e o 2º abriu
+    expect(screen.getByRole("button", { name: /Abrir Agachamento livre/ })).toHaveTextContent("EVA 3");
+    const card2 = cardOf("Alongamento de panturrilha");
+    expect(within(card2).getByLabelText(/^Tempo por série/)).toHaveValue("45");
+    expect(screen.getByText("1 de 2 registrados")).toBeInTheDocument();
+  });
+
+  it("remover exercício pode ser desfeito pelo toast", async () => {
+    const user = userEvent.setup();
+    render(
+      <ToastProvider>
+        <AtendimentoClient patient={patient} exercises={exercises} />
+      </ToastProvider>
+    );
+    await user.click(screen.getByText("Agachamento livre"));
+    const card = cardOf("Agachamento livre");
+    await user.click(within(card).getByRole("button", { name: /Remover Agachamento livre/ }));
+    expect(screen.queryByRole("heading", { level: 3, name: "Agachamento livre" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Desfazer" }));
+    expect(screen.getByRole("heading", { level: 3, name: "Agachamento livre" })).toBeInTheDocument();
+  });
+
+  it("guarda rascunho local e o recupera ao reabrir a tela", async () => {
+    const user = userEvent.setup();
+    const first = render(
+      <AtendimentoClient patient={patient} exercises={exercises} />
+    );
+    await user.click(screen.getByText("Agachamento livre"));
+    await user.click(within(cardOf("Agachamento livre")).getByRole("radio", { name: /^Dor 5 de 10/ }));
+    expect(window.localStorage.getItem("gf:draft:p1")).toContain('"pain_eva":5');
+    first.unmount();
+
+    render(<AtendimentoClient patient={patient} exercises={exercises} />);
+    const card = cardOf("Agachamento livre");
+    expect(within(card).getByRole("radio", { name: /^Dor 5 de 10/ })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("usa a data local (não UTC) como data padrão da sessão", () => {
+    render(<AtendimentoClient patient={patient} exercises={exercises} />);
+    const d = new Date();
+    const expected = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    expect(screen.getByLabelText("Data da sessão", { selector: "input" })).toHaveValue(expected);
+  });
+
+  it("salva com id de sessão gerado no cliente (upsert) e o rascunho guarda o mesmo id", async () => {
+    const user = userEvent.setup();
+    render(<AtendimentoClient patient={patient} exercises={exercises} />);
+    await user.click(screen.getByText("Agachamento livre"));
+    await user.click(within(cardOf("Agachamento livre")).getByRole("radio", { name: /^Dor 1 de 10/ }));
+    const draft = JSON.parse(window.localStorage.getItem("gf:draft:p1")!);
+    expect(draft.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+
+    await user.click(screen.getAllByRole("button", { name: /Finalizar atendimento/ })[0]);
+    const session = insertedRows["sessions"]![0] as Record<string, unknown>;
+    expect(session.id).toBe(draft.sessionId);
+    const ex = insertedRows["session_exercises"]![0] as Record<string, unknown>;
+    expect(ex.session_id).toBe(draft.sessionId);
+    // sessão gravada → rascunho apagado
+    expect(window.localStorage.getItem("gf:draft:p1")).toBeNull();
+  });
+
+  it("modo edição: insere os novos exercícios antes de apagar os antigos", async () => {
+    const user = userEvent.setup();
+    const editingSession = {
+      id: "s-old",
+      session_date: "2026-10-20",
+      general_notes: null,
+      items: [
+        {
+          id: "se-1",
+          exercise: exercises[0],
+          sets: 3,
+          reps: 15,
+          load_kg: null,
+          duration_seconds: null,
+          speed_kmh: null,
+          distance_m: null,
+          incline_pct: null,
+          pain_eva: 7,
+          notes: null,
+        },
+      ],
+    };
+    render(
+      <AtendimentoClient
+        patient={patient}
+        exercises={exercises}
+        editingSession={editingSession}
+      />
+    );
+    // o card vem recolhido com a EVA registrada
+    expect(screen.getByRole("button", { name: /Abrir Agachamento livre/ })).toHaveTextContent("EVA 7");
+    await user.click(screen.getAllByRole("button", { name: /Salvar alterações/ })[0]);
+    const ex = insertedRows["session_exercises"]![0] as Record<string, unknown>;
+    expect(ex.session_id).toBe("s-old");
+    expect(ex.pain_eva).toBe(7);
+    expect(insertedRows["sessions"]).toBeUndefined(); // update, não insert
+    expect(pushMock).toHaveBeenCalledWith("/pacientes/p1");
   });
 });
