@@ -97,6 +97,9 @@ export const EXERCISE_CATEGORIES: Record<string, string> = {
   mobilidade: "Mobilidade",
   propriocepcao: "Equilíbrio / Propriocepção",
   condicionamento: "Condicionamento",
+  eletrotermoterapia: "Eletrotermoterapia",
+  transicao_fisica: "Transição física",
+  transicao_fisioterapica: "Transição fisioterápica",
 };
 
 export const DOC_CATEGORIES: Record<string, string> = {
